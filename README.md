@@ -1,5 +1,7 @@
 # HostingDE-DynDNS
 
+This fork is basd on the project https://github.com/poettig/HostingDE-DynDNS and implements the same functionality but uses the Porkbun API and also incorporates the code of the Porkbun project https://github.com/porkbundomains/porkbun-dynamic-dns-python/tree/main.
+
 This is a server that accepts GET requests with specific query parameters and interfaces with the hosting.de [DNS API](https://www.hosting.de/api/?json#updating-records-in-a-zone) in order to update DNS records with regularly changing IP addresses automatically.
 
 ## Running
