@@ -1,4 +1,4 @@
-# HostingDE-DynDNS
+# DynDNS Server Porkbun
 
 This fork is basd on the project https://github.com/poettig/HostingDE-DynDNS and implements the same functionality but uses the Porkbun API and also incorporates the code of the Porkbun project https://github.com/porkbundomains/porkbun-dynamic-dns-python/tree/main.
 
