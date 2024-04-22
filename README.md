@@ -2,7 +2,7 @@
 
 This fork is basd on the project https://github.com/poettig/HostingDE-DynDNS and implements the same functionality but uses the Porkbun API and also incorporates the code of the Porkbun project https://github.com/porkbundomains/porkbun-dynamic-dns-python/tree/main.
 
-This is a server that accepts GET requests with specific query parameters and interfaces with the hosting.de [DNS API](https://www.hosting.de/api/?json#updating-records-in-a-zone) in order to update DNS records with regularly changing IP addresses automatically.
+This is a server that accepts GET requests with specific query parameters and interfaces with the Porkbun [DNS API](https://porkbun.com/api/json/v3/documentation) in order to update DNS records with regularly changing IP addresses automatically.
 
 ## Running
 Install requirements from [requirements.txt](requirements.txt) either directly for the user or in a venv.
@@ -54,4 +54,4 @@ The query parameters are
 * This application is not written to run with SSL and does not provide any authentication. Using a reverse proxy for transport encryption and authentication is expected.
 * Records are only updated, never created. This is to prevent this server from creating arbitrary DNS records.
 * Additionally, you can provide a list of allowed domains in the config. This prevents editing different records from the ones you want for DynDNS via a simple GET request.
-* For the hosting.de API token, you can only select DNS-Service → Zonen → Bearbeiten. There are no additional permissions required, I recommend creating such a least privileges token.
+* For the Porkbun API, you need to enable the API access for the used domain in the web interface.
