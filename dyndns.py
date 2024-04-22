@@ -35,6 +35,11 @@ class PorkbunDNSAPIClient:
         print(root_domain)
         return root_domain
 
+    def getSubDomain(self, full_domain: str) -> str:
+        sub_domain = '.'.join(full_domain.split('.')[:-2])
+        print(sub_domain)
+        return sub_domain
+
 
     def getRecords(self, domain: str): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
         print(f"checking {domain}")
@@ -44,11 +49,20 @@ class PorkbunDNSAPIClient:
             sys.exit();
         return(allRecords)
 
-    def deleteRecord(self, records: str, record_type: str, record_name: str, root_domain: str):
+    def updateRecord(self, records: str, record_type: str, record_name: str, root_domain: str,  record_data: str, record_ttl: str):
+        api_header = {
+            "secretapikey": self.secretapikey,
+            "apikey": self.apikey,
+            "name": self.getSubDomain(record_name),
+            "type": record_type,
+            "content": record_data,
+            "ttl": record_ttl
+        }
+
         for i in records["records"]:
             if i["name"]==record_name and (i["type"] == record_type):
-                print("Deleting existing " + i["type"] + " Record")
-                deleteRecord = json.loads(requests.post(self.base_url + '/dns/delete/' + root_domain + '/' + i["id"], data = json.dumps(self.api_header)).text)
+                print(f"Editing " + i["type"] + " record of {record_name}")
+                deleteRecord = json.loads(requests.post(self.base_url + '/dns/edit/' + root_domain + '/' + i["id"], data = json.dumps(api_header)).text)
 
 
     def api_request(self, endpoint: str, payload: dict):
@@ -91,10 +105,11 @@ class PorkbunDNSAPIClient:
 
         print(record_name)
         root_domain = self.getRootDomain(record_name)
+        print(self.getSubDomain(record_name))
         records = self.getRecords(root_domain)
-        self.deleteRecord(records,record_type, record_name, root_domain) #delete works
+        result = self.updateRecord(records,record_type, record_name, root_domain, record_data, record_ttl)
 
-        # FIX HERE STUFF
+        # FIX return value check
 
         # result = self.api_request(
         #     "recordsUpdate",
