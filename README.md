@@ -50,6 +50,18 @@ The query parameters are
 | ipv6      | one of [ipv4, ipv6] | The IPv6 for the AAAA record of the domain. Must exist in the DNS zone already.    |
 | ttl       | no                  | The TTL of the record. If not given, a default value from the config file is used. |
 
+## nginx Snippet
+
+Location snippet for the default config
+
+```
+	location /<YOUR ENDPOINT> {
+			# with this line, nginx relays the request to the Porkbun DynDNS Server
+			proxy_pass http://localhost:5354/dyndns;
+			proxy_set_header Host            $host;
+	}
+```
+
 ## Security Considerations
 * This application is not written to run with SSL and does not provide any authentication. Using a reverse proxy for transport encryption and authentication is expected.
 * Records are only updated, never created. This is to prevent this server from creating arbitrary DNS records.
