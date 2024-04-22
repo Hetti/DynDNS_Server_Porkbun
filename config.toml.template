@@ -3,7 +3,8 @@ bind_host="::1"
 bind_port=5354
 allowed_domains=["dyndns1.example.com", "dyndns2.example.com"] # Can also be 'false' to disable allowlist checking
 
-[hosting_de_dns_api]
-token="<has_to_have_zone_edit_permissions>"
-zone="example.com"
+[porkbun_dns_api]
+endpoint="https://api-ipv4.porkbun.com/api/json/v3"
+apikey="your_api_key"
+secretapikey="your_secret_key"
 default_ttl=300
