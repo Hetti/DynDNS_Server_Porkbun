@@ -1,10 +1,12 @@
 import argparse
 import logging
 import typing
+import sys
 
 import cherrypy
 import requests
 import toml
+import json
 
 
 class DNSAPIException(Exception):
@@ -16,12 +18,38 @@ class DNSAPIException(Exception):
         return f"{self.error_code} - {self.error_data}"
 
 
-class HostingDEDNSAPIClient:
+class PorkbunDNSAPIClient:
     def __init__(self, config):
-        self.base_url = "https://secure.hosting.de/api/dns/v1/json"
-        self.zone = config["zone"]
-        self.token = config["token"]
+        self.base_url = config["endpoint"]
+        self.apikey = config["apikey"]
+        self.secretapikey = config["secretapikey"]
         self.default_ttl = config["default_ttl"]
+
+        self.api_header = {
+            "secretapikey": self.secretapikey,
+            "apikey": self.apikey
+        }
+
+    def getRootDomain(self, full_domain: str) -> str:
+        root_domain = '.'.join(full_domain.split('.')[-2:])
+        print(root_domain)
+        return root_domain
+
+
+    def getRecords(self, domain: str): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
+        print(f"checking {domain}")
+        allRecords=json.loads(requests.post(self.base_url + '/dns/retrieve/' + domain, data = json.dumps(self.api_header)).text)
+        if allRecords["status"]=="ERROR":
+            print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.');
+            sys.exit();
+        return(allRecords)
+
+    def deleteRecord(self, records: str, record_type: str, record_name: str, root_domain: str):
+        for i in records["records"]:
+            if i["name"]==record_name and (i["type"] == record_type):
+                print("Deleting existing " + i["type"] + " Record")
+                deleteRecord = json.loads(requests.post(self.base_url + '/dns/delete/' + root_domain + '/' + i["id"], data = json.dumps(self.api_header)).text)
+
 
     def api_request(self, endpoint: str, payload: dict):
         response = requests.post(f"{self.base_url}/{endpoint}", json=payload)
@@ -50,27 +78,6 @@ class HostingDEDNSAPIClient:
 
         return response.json()["response"]
 
-    def get_resource_record_id(self, record_name: str, record_type: str):
-        result = self.api_request(
-            "recordsFind",
-            {
-                "authToken": self.token,
-                "filter": {
-                    "subFilterConnective": "AND",
-                    "subFilter": [
-                        {
-                            "field": "RecordName",
-                            "value": record_name
-                        },
-                        {
-                            "field": "RecordType",
-                            "value": record_type
-                        }
-                    ]
-                }
-            }
-        )
-
         if len(result["data"]) == 0:
             raise DNSAPIException(404, "No matching record found.")
         elif len(result["data"]) > 1:
@@ -81,43 +88,54 @@ class HostingDEDNSAPIClient:
         return result["data"][0]["id"]
 
     def update_resource_record(self, record_name: str, record_type: str, record_data: str, record_ttl: int = None):
-        record_id = self.get_resource_record_id(record_name, record_type)
-        result = self.api_request(
-            "recordsUpdate",
-            {
-                "authToken": self.token,
-                "zoneName": self.zone,
-                "recordsToModify": [
-                    {
-                        "id": record_id,
-                        "name": record_name,
-                        "type": record_type,
-                        "content": record_data,
-                        "comments": "DynDNS Record - automatically managed, do not change!",
-                        # Minimum TTL for hosting.de is 60s
-                        "ttl": record_ttl if record_ttl and record_ttl >= 60 else self.default_ttl
-                    }
-                ]
-            }
-        )
 
-        filtered = list(filter(lambda entry: entry.get("id") == record_id, result.get("records", [])))
-        if len(filtered) == 0:
-            raise DNSAPIException(
-                500,
-                "Update succeeded, but failed to find updated record in success response. This should not happen."
-            )
-        elif len(filtered) > 1:
-            raise DNSAPIException(
-                500,
-                "Update succeeded, but found more than one result in success response. This should not happen."
-            )
+        print(record_name)
+        root_domain = self.getRootDomain(record_name)
+        records = self.getRecords(root_domain)
+        self.deleteRecord(records,record_type, record_name, root_domain) #delete works
 
-        return filtered[0]
+        # FIX HERE STUFF
+
+        # result = self.api_request(
+        #     "recordsUpdate",
+        #     {
+        #         "authToken": self.token,
+        #         "zoneName": self.zone,
+        #         "recordsToModify": [
+        #             {
+        #                 "id": record_id,
+        #                 "name": record_name,
+        #                 "type": record_type,
+        #                 "content": record_data,
+        #                 "comments": "DynDNS Record - automatically managed, do not change!",
+        #                 # Minimum TTL for hosting.de is 60s
+        #                 "ttl": record_ttl if record_ttl and record_ttl >= 60 else self.default_ttl
+        #             }
+        #         ]
+        #     }
+        # )
+
+        # filtered = list(filter(lambda entry: entry.get("id") == record_id, result.get("records", [])))
+        # if len(filtered) == 0:
+        #     raise DNSAPIException(
+        #         500,
+        #         "Update succeeded, but failed to find updated record in success response. This should not happen."
+        #     )
+        # elif len(filtered) > 1:
+        #     raise DNSAPIException(
+        #         500,
+        #         "Update succeeded, but found more than one result in success response. This should not happen."
+        #     )
+
+        # fix returned results
+        # return filtered[0]
+
+        # fix return value
+        return "YOLO"
 
 
 class Root:
-    def __init__(self, dns_client: HostingDEDNSAPIClient, allowed_domains: typing.Union[bool, list]):
+    def __init__(self, dns_client: PorkbunDNSAPIClient, allowed_domains: typing.Union[bool, list]):
         if allowed_domains and not isinstance(allowed_domains, list):
             raise ValueError("allowed_domains has to be a list or False to allow all domains.")
 
@@ -198,8 +216,8 @@ def main():
         cherrypy.server.socket_port = config["main"]["bind_port"]
 
     allowed_domains = config["main"]["allowed_domains"]
-    hosting_de_dns_api_client = HostingDEDNSAPIClient(config["hosting_de_dns_api"])
-    root = Root(hosting_de_dns_api_client, allowed_domains)
+    porkbun_dns_api_client = PorkbunDNSAPIClient(config["porkbun_dns_api"])
+    root = Root(porkbun_dns_api_client, allowed_domains)
 
     cherrypy.quickstart(root)
 
