@@ -57,8 +57,11 @@ class PorkbunDNSAPIClient:
             "ttl": record_ttl
         }
 
+        updateRecord["status"] = "ERROR"
+        updateRecord['message'] = "Something is already broken..."
+
         for i in records["records"]:
-            if i["name"]==record_name and (i["type"] == record_type):
+            if i["name"]==record_name and i["type"] == record_type:
                 print(f"Editing {i['type']} record of {record_name}")
                 updateRecord = json.loads(requests.post(self.base_url + '/dns/edit/' + root_domain + '/' + i["id"], data = json.dumps(api_header)).text)
 
