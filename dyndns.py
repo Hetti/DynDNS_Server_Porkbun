@@ -8,7 +8,6 @@ import requests
 import toml
 import json
 
-
 class DNSAPIException(Exception):
     def __init__(self, error_code: int, error_data: typing.Union[str, dict]):
         self.error_code = error_code
@@ -16,7 +15,6 @@ class DNSAPIException(Exception):
 
     def __str__(self):
         return f"{self.error_code} - {self.error_data}"
-
 
 class PorkbunDNSAPIClient:
     def __init__(self, config):
@@ -33,8 +31,7 @@ class PorkbunDNSAPIClient:
         sub_domain = '.'.join(full_domain.split('.')[:-2])
         return sub_domain
 
-
-    def getRecords(self, domain: str): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
+    def getRecords(self, domain: str): #grab all the records so we know which ones to update. Also checks to make sure we've got the right domain
         api_header = {
             "secretapikey": self.secretapikey,
             "apikey": self.apikey
@@ -42,7 +39,8 @@ class PorkbunDNSAPIClient:
         
         print(f"Getting records for {domain}")
         allRecords = json.loads(requests.post(self.base_url + '/dns/retrieve/' + domain, data = json.dumps(api_header)).text)
-        if allRecords["status"]=="ERROR":
+        # print(allRecords)
+        if allRecords["status"] == "ERROR":
             print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.');
             sys.exit()
         return(allRecords)
@@ -57,6 +55,7 @@ class PorkbunDNSAPIClient:
             "ttl": record_ttl
         }
 
+        updateRecord = {}
         updateRecord["status"] = "ERROR"
         updateRecord['message'] = "Something is already broken..."
 
@@ -74,11 +73,16 @@ class PorkbunDNSAPIClient:
         record_ttl = record_ttl if record_ttl and record_ttl >= 60 else self.default_ttl
         root_domain = self.getRootDomain(record_name)
         records = self.getRecords(root_domain)
+        result = {}
+        # loop through records and check if the records are already present
+        for i in records["records"]:
+            if i["name"] == record_name and i["type"] == record_type and i["content"] == record_data:
+                result["status"] = "SUCCESS"
+                return result
+        
         result = self.updateRecord(records,record_type, record_name, root_domain, record_data, record_ttl)
 
         return result
-
-
 class Root:
     def __init__(self, dns_client: PorkbunDNSAPIClient, allowed_domains: typing.Union[bool, list]):
         if allowed_domains and not isinstance(allowed_domains, list):
@@ -130,7 +134,6 @@ class Root:
         cherrypy.response.headers['Content-Type'] = 'text/plain'
         return "\n".join(results)
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="DynDNS server providing an interface for updates via generic URL"
@@ -165,7 +168,6 @@ def main():
     root = Root(porkbun_dns_api_client, allowed_domains)
 
     cherrypy.quickstart(root)
-
 
 if __name__ == "__main__":
     main()
