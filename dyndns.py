@@ -64,8 +64,8 @@ class PorkbunDNSAPIClient:
                 print(f"Editing {i['type']} record of {record_name}")
                 updateRecord = json.loads(requests.post(self.base_url + '/dns/edit/' + root_domain + '/' + i["id"], data = json.dumps(api_header)).text)
 
-        if updateRecord["status"] == "ERROR":
-            raise DNSAPIException(500, updateRecord['message'])
+            if updateRecord["status"] == "ERROR":
+                raise DNSAPIException(500, updateRecord['message'])
 
         return(updateRecord)
 
