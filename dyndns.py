@@ -31,25 +31,25 @@ class PorkbunDNSAPIClient:
         sub_domain = '.'.join(full_domain.split('.')[:-2])
         return sub_domain
 
-    def getRecords(self, domain: str): #grab all the records so we know which ones to update. Also checks to make sure we've got the right domain
+    def getRecords(self, root_domain: str, sub_domain: str, record_type: str): #grab all the records so we know which ones to update. Also checks to make sure we've got the right domain
         api_header = {
             "secretapikey": self.secretapikey,
             "apikey": self.apikey
         }
         
-        print(f"Getting records for {domain}")
-        allRecords = json.loads(requests.post(self.base_url + '/dns/retrieve/' + domain, data = json.dumps(api_header)).text)
+        print(f"Getting records of type {record_type} for {root_domain}/{sub_domain}")
+        allRecords = json.loads(requests.post(self.base_url + '/dns/retrieveByNameType/' + root_domain + '/' + record_type + '/' + sub_domain, data = json.dumps(api_header)).text)
         # print(allRecords)
         if allRecords["status"] == "ERROR":
             print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.');
             sys.exit()
         return(allRecords)
 
-    def updateRecord(self, records: str, record_type: str, record_name: str, root_domain: str,  record_data: str, record_ttl: str):
+    def updateRecord(self, record_type: str, root_domain: str, sub_domain: str,  record_data: str, record_ttl: str):
         api_header = {
             "secretapikey": self.secretapikey,
             "apikey": self.apikey,
-            "name": self.getSubDomain(record_name),
+            "name": sub_domain,
             "type": record_type,
             "content": record_data,
             "ttl": record_ttl
@@ -59,28 +59,28 @@ class PorkbunDNSAPIClient:
         updateRecord["status"] = "ERROR"
         updateRecord['message'] = "Something is already broken..."
 
-        for i in records["records"]:
-            if i["name"]==record_name and i["type"] == record_type:
-                print(f"Editing {i['type']} record of {record_name}")
-                updateRecord = json.loads(requests.post(self.base_url + '/dns/edit/' + root_domain + '/' + i["id"], data = json.dumps(api_header)).text)
+        print(f"Editing {record_type} record of {root_domain}/{sub_domain}")
+        updateRecord = json.loads(requests.post(self.base_url + '/dns/editByNameType/' + root_domain + '/' + record_type + '/' + sub_domain, data = json.dumps(api_header)).text)
 
-            if updateRecord["status"] == "ERROR":
-                raise DNSAPIException(500, updateRecord['message'])
+        if updateRecord["status"] == "ERROR":
+            raise DNSAPIException(500, updateRecord['message'])
 
         return(updateRecord)
 
-    def update_resource_record(self, record_name: str, record_type: str, record_data: str, record_ttl: int = None):
+    def update_resource_record(self, domain: str, record_type: str, record_data: str, record_ttl: int = None):
         record_ttl = record_ttl if record_ttl and record_ttl >= 60 else self.default_ttl
-        root_domain = self.getRootDomain(record_name)
-        records = self.getRecords(root_domain)
+        root_domain = self.getRootDomain(domain)
+        sub_domain = self.getSubDomain(domain)
+        records = self.getRecords(root_domain, sub_domain, record_type)
         result = {}
         # loop through records and check if the records are already present
+        # TODO not sure this works as intended...?
         for i in records["records"]:
-            if i["name"] == record_name and i["type"] == record_type and i["content"] == record_data:
+            if i["name"] == domain and i["type"] == record_type and i["content"] == record_data:
                 result["status"] = "SUCCESS"
                 return result
         
-        result = self.updateRecord(records,record_type, record_name, root_domain, record_data, record_ttl)
+        result = self.updateRecord(record_type, root_domain, sub_domain, record_data, record_ttl)
 
         return result
 class Root:
